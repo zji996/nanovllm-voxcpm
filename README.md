@@ -128,15 +128,21 @@ wav = np.concatenate(chunks, axis=0)
 server.stop()
 ```
 
-### Prompting (optional)
+### Prompting and reference audio (optional)
 
-The VoxCPM server supports three prompt modes:
+The VoxCPM2 server supports these conditioning inputs:
 
-- zero-shot: no prompt
-- provide `prompt_latents` + `prompt_text`
-- provide a stored `prompt_id` (via `add_prompt`) and then generate with that id
+- zero-shot: no prompt or reference audio
+- prompt continuation: provide `prompt_latents` + `prompt_text`
+- stored prompt: provide a `prompt_id` (via `add_prompt`) and then generate with that id
+- reference audio: provide `ref_audio_latents` to add a separate reference-audio condition
 
-See the docstrings in `nanovllm_voxcpm/models/voxcpm/server.py` for details.
+`ref_audio_latents` is independent from `prompt_latents`:
+
+- use `prompt_latents` when you want to continue from an existing audio prefix
+- use `ref_audio_latents` when you want to provide extra reference audio without treating it as the decode prefix
+
+See the public API in `nanovllm_voxcpm/models/voxcpm2/server.py` for details.
 
 ## FastAPI demo
 

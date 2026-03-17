@@ -48,7 +48,7 @@ def test_lifespan_loads_lora_when_configured(monkeypatch, tmp_path: Path):
         async def set_lora_enabled(self, enabled: bool):
             return None
 
-    monkeypatch.setattr(lifespan, "AsyncVoxCPMServerPool", FakeServerPoolWithLora)
+    monkeypatch.setattr(lifespan, "SERVER_FACTORY", FakeServerPoolWithLora)
 
     from app.main import create_app
 

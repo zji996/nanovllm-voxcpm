@@ -171,6 +171,11 @@ Request body (JSON):
   - wav prompt: `prompt_wav_base64` + `prompt_wav_format` + `prompt_text`
   - latents prompt: `prompt_latents_base64` + `prompt_text`
   - zero-shot: omit all prompt fields
+- Reference audio (optional, mutually exclusive):
+  - wav reference: `ref_audio_wav_base64` + `ref_audio_wav_format`
+  - latents reference: `ref_audio_latents_base64`
+
+`ref_audio_*` is independent from the prompt fields, so you can combine reference audio with either zero-shot or prompted generation.
 
 Response:
 

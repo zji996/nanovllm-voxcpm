@@ -6,8 +6,8 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
+from nanovllm_voxcpm.llm import VoxCPM
 from nanovllm_voxcpm.models.voxcpm.config import LoRAConfig as VoxLoRAConfig
-from nanovllm_voxcpm.models.voxcpm.server import AsyncVoxCPMServerPool
 
 from app.core.config import ServiceConfig
 from app.core.metrics import LORA_LOADED, LORA_LOAD_SECONDS
@@ -16,6 +16,8 @@ from app.services.lora_resolver import (
     normalize_lora_checkpoint_path,
     resolve_lora_uri,
 )
+
+SERVER_FACTORY = VoxCPM.from_pretrained
 
 
 def build_lifespan(cfg: ServiceConfig):
@@ -36,8 +38,8 @@ def build_lifespan(cfg: ServiceConfig):
             parsed_cfg = load_lora_config_from_checkpoint(ckpt_dir)
             lora_config = parsed_cfg or VoxLoRAConfig()
 
-        server = AsyncVoxCPMServerPool(
-            model_path=cfg.model_path,
+        server = SERVER_FACTORY(
+            model=cfg.model_path,
             max_num_batched_tokens=cfg.server_pool.max_num_batched_tokens,
             max_num_seqs=cfg.server_pool.max_num_seqs,
             max_model_len=cfg.server_pool.max_model_len,

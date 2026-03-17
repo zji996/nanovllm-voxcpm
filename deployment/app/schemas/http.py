@@ -103,6 +103,11 @@ class GenerateRequest(BaseModel):
     - Zero-shot: omit all prompt_* fields.
     - WAV prompt: set prompt_wav_base64 + prompt_wav_format + prompt_text.
     - Latents prompt: set prompt_latents_base64 + prompt_text.
+
+    Reference audio (optional, mutually exclusive within the ref_audio_* group):
+
+    - WAV reference: set ref_audio_wav_base64 + ref_audio_wav_format.
+    - Latents reference: set ref_audio_latents_base64.
     """
 
     target_text: str = Field(..., description="Text to synthesize.")
@@ -123,6 +128,19 @@ class GenerateRequest(BaseModel):
     prompt_text: str | None = Field(
         None,
         description="Prompt transcript text. Required for wav/latents prompt; omitted for zero-shot.",
+    )
+
+    ref_audio_wav_base64: str | None = Field(
+        None,
+        description="(reference audio) Base64-encoded audio file bytes (entire file contents).",
+    )
+    ref_audio_wav_format: str | None = Field(
+        None,
+        description="(reference audio) Audio container format for decoding (e.g. 'wav', 'flac', 'mp3').",
+    )
+    ref_audio_latents_base64: str | None = Field(
+        None,
+        description="(reference audio) Base64-encoded float32 bytes returned by /encode_latents.",
     )
 
     max_generate_length: int = Field(2000, ge=1, description="Maximum number of model generation steps.")

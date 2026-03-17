@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -11,7 +12,6 @@ from app.core.metrics import (
     ENCODE_LATENTS_REQUESTS_TOTAL,
 )
 from app.schemas.http import EncodeLatentsRequest, EncodeLatentsResponse, ErrorResponse
-from nanovllm_voxcpm.models.voxcpm.server import AsyncVoxCPMServerPool
 
 router = APIRouter(tags=["latents"])
 
@@ -28,7 +28,7 @@ router = APIRouter(tags=["latents"])
 )
 async def encode_latents(
     req: EncodeLatentsRequest,
-    server: AsyncVoxCPMServerPool = Depends(get_server),
+    server: Any = Depends(get_server),
 ) -> EncodeLatentsResponse:
     """Decode an audio file and return serialized float32 prompt latents."""
 

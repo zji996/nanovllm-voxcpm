@@ -138,6 +138,7 @@ class FakeServerPool:
         target_text: str,
         prompt_latents: bytes | None = None,
         prompt_text: str = "",
+        ref_audio_latents: bytes | None = None,
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 1.5,
@@ -158,7 +159,7 @@ class FakeServerPool:
 def app(monkeypatch):
     import app.core.lifespan as lifespan
 
-    monkeypatch.setattr(lifespan, "AsyncVoxCPMServerPool", FakeServerPool)
+    monkeypatch.setattr(lifespan, "SERVER_FACTORY", FakeServerPool)
 
     from app.main import create_app
 

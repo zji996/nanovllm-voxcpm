@@ -126,6 +126,7 @@ class VoxCPM2ServerImpl:
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 1.0,
+        ref_audio_latents: bytes | None = None,
     ) -> None:
         if prompt_latents is None:
             if len(prompt_text) > 0:
@@ -134,6 +135,11 @@ class VoxCPM2ServerImpl:
                 seq_id=seq_id,
                 target_text=target_text,
                 prompt_text="",
+                ref_audio_latents=(
+                    np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(-1, self.llm.feat_dim)
+                    if ref_audio_latents is not None
+                    else None
+                ),
                 max_generate_length=max_generate_length,
                 temperature=temperature,
                 cfg_value=cfg_value,
@@ -149,6 +155,11 @@ class VoxCPM2ServerImpl:
             target_text=target_text,
             prompt_text=prompt_text,
             prompt_latents=prompt_latents_arr,
+            ref_audio_latents=(
+                np.frombuffer(ref_audio_latents, dtype=np.float32).reshape(-1, self.llm.feat_dim)
+                if ref_audio_latents is not None
+                else None
+            ),
             max_generate_length=max_generate_length,
             temperature=temperature,
             cfg_value=cfg_value,
@@ -395,6 +406,7 @@ class AsyncVoxCPM2Server:
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 2.0,
+        ref_audio_latents: bytes | None = None,
     ) -> AsyncGenerator[Waveform, None]:
         seq_id = gen_uuid()
         self.stream_table[seq_id] = asyncio.Queue()
@@ -409,6 +421,7 @@ class AsyncVoxCPM2Server:
                 max_generate_length,
                 temperature,
                 cfg_value,
+                ref_audio_latents,
             )
             while True:
                 data = await self.stream_table[seq_id].get()
@@ -497,6 +510,7 @@ class AsyncVoxCPM2ServerPool:
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 2.0,
+        ref_audio_latents: bytes | None = None,
     ):
         if prompt_id is not None:
             if prompt_id not in self._prompt_pool:
@@ -520,6 +534,7 @@ class AsyncVoxCPM2ServerPool:
                 max_generate_length,
                 temperature,
                 cfg_value,
+                ref_audio_latents,
             ):
                 yield data
         finally:
@@ -601,6 +616,7 @@ class SyncVoxCPM2ServerPool:
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 2.0,
+        ref_audio_latents: bytes | None = None,
     ):
         assert self.loop is not None
         async_gen = self.server_pool.generate(
@@ -611,6 +627,7 @@ class SyncVoxCPM2ServerPool:
             max_generate_length,
             temperature,
             cfg_value,
+            ref_audio_latents,
         )
         try:
             while True:

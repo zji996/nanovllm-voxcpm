@@ -4,7 +4,7 @@ from pathlib import Path
 
 import aiohttp
 
-API_BASE = "http://localhost:8000"
+API_BASE = "http://localhost:8760"
 
 
 async def encode_latents(session: aiohttp.ClientSession, wav_path: Path, wav_format: str) -> dict:
@@ -44,6 +44,7 @@ async def main() -> None:
             (
                 {
                     "target_text": "Hello world.",
+                    "cfg_value": 2,
                 },
                 Path("out_zero_shot.mp3"),
             ),
@@ -52,10 +53,24 @@ async def main() -> None:
                     "target_text": "Hello world.",
                     "prompt_latents_base64": prompt_latents_b64,
                     "prompt_text": "你好，很高兴见到你。",
+                    "cfg_value": 2,
                 },
                 Path("out_prompted.mp3"),
             ),
         ]
+
+        jobs.extend(
+            [
+                (
+                    {
+                        "target_text": "Hello world.",
+                        "ref_audio_latents_base64": prompt_latents_b64,
+                        "cfg_value": 2,
+                    },
+                    Path("out_zero_shot_with_ref.mp3"),
+                ),
+            ]
+        )
 
         await asyncio.gather(*[generate_mp3(session, payload, out_path) for payload, out_path in jobs])
 

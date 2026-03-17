@@ -572,7 +572,11 @@ class VoxCPM2Model(nn.Module):
         else:
             lm_hidden = enc_outputs
 
-        residual_inputs = self.fusion_concat_proj(torch.cat([enc_outputs, feat_embeds], dim=-1))
+        residual_inputs = self.fusion_concat_proj(torch.cat([enc_outputs, torch.where(
+            feat_mask.unsqueeze(-1),
+            feat_embeds,
+            0
+        )], dim=-1))
         ralm_outputs = self.residual_lm(residual_inputs, positions)
         if context.is_prefill:
             last_indices = context.cu_seqlens_q[1:] - 1

@@ -49,6 +49,7 @@ class FakeServerPool:
         target_text: str,
         prompt_latents: bytes | None = None,
         prompt_text: str = "",
+        ref_audio_latents: bytes | None = None,
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 1.5,
@@ -69,7 +70,7 @@ def app(monkeypatch):
     # Patch the server pool used by lifespan.
     import app.core.lifespan as lifespan
 
-    monkeypatch.setattr(lifespan, "AsyncVoxCPMServerPool", FakeServerPool)
+    monkeypatch.setattr(lifespan, "SERVER_FACTORY", FakeServerPool)
 
     from app.main import create_app
 
@@ -119,3 +120,19 @@ def test_generate_streams_mp3(app):
             assert resp.headers.get("content-type", "").startswith("audio/mpeg")
             data = resp.read()
             assert data
+
+
+def test_generate_with_reference_latents(app):
+    ref_latents_b64 = base64.b64encode(np.arange(0, 64, dtype=np.float32).tobytes()).decode("utf-8")
+    with TestClient(app) as client:
+        with client.stream(
+            "POST",
+            "/generate",
+            json={
+                "target_text": "hi",
+                "ref_audio_latents_base64": ref_latents_b64,
+            },
+        ) as resp:
+            assert resp.status_code == 200
+            assert resp.headers.get("content-type", "").startswith("audio/mpeg")
+            assert resp.read()

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_server
 from app.schemas.http import ErrorResponse, InfoResponse, LoRAInfo, ModelInfo, Mp3Info
-from nanovllm_voxcpm.models.voxcpm.server import AsyncVoxCPMServerPool
 
 router = APIRouter(tags=["info"])
 
@@ -20,7 +21,7 @@ router = APIRouter(tags=["info"])
         }
     },
 )
-async def info(request: Request, server: AsyncVoxCPMServerPool = Depends(get_server)) -> InfoResponse:
+async def info(request: Request, server: Any = Depends(get_server)) -> InfoResponse:
     """Return model metadata and instance-level configuration."""
 
     cfg = getattr(request.app.state, "cfg", None)
