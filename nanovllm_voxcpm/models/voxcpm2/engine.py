@@ -107,7 +107,7 @@ class VoxCPM2Engine(LLMEngineBase):
         target_text: str,
         prompt_text: str = "",
         prompt_latents: np.ndarray | None = None,
-        ref_audio_latents : np.ndarray | None = None,
+        ref_audio_latents: np.ndarray | None = None,
         max_generate_length: int = 2000,
         temperature: float = 1.0,
         cfg_value: float = 1.0,
@@ -127,15 +127,20 @@ class VoxCPM2Engine(LLMEngineBase):
 
             audio_feat_pad = np.zeros((1, self.patch_size, self.feat_dim), dtype=np.float32)
             audio_feat = np.concatenate([audio_feat_pad, wav_latents, audio_feat_pad, audio_feat], axis=0)
-            text_tokens = [self.ref_audio_start_token] + ([0 for _ in range(wav_latents.shape[0])]) + [self.ref_audio_end_token] + text_tokens
+            text_tokens = (
+                [self.ref_audio_start_token]
+                + ([0 for _ in range(wav_latents.shape[0])])
+                + [self.ref_audio_end_token]
+                + text_tokens
+            )
             feat_masks = [False] + ([True for _ in range(wav_latents.shape[0])]) + [False] + feat_masks
 
-            prepend_hash_tokens = [self.ref_audio_start_token] + [
-                wav_latents[i].tobytes()
-                for i in range(wav_latents.shape[0])
-            ] + [self.ref_audio_end_token]
+            prepend_hash_tokens = (
+                [self.ref_audio_start_token]
+                + [wav_latents[i].tobytes() for i in range(wav_latents.shape[0])]
+                + [self.ref_audio_end_token]
+            )
             hash_tokens = prepend_hash_tokens + hash_tokens
-
 
         if prompt_latents is not None:
             wav_latents = prompt_latents

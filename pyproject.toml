@@ -83,6 +83,7 @@ warn_unused_ignores = true
 module = [
     "nanovllm_voxcpm.layers.*",
     "nanovllm_voxcpm.models.voxcpm.*",
+    "nanovllm_voxcpm.models.voxcpm2.*",
 ]
 ignore_errors = true
 
