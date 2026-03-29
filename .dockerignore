@@ -23,3 +23,6 @@ dist
 /deployment/Dockerfile
 
 /models
+*.wav
+*.mp3
+*.pt
