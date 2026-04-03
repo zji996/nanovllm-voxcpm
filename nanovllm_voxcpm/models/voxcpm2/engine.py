@@ -26,7 +26,7 @@ class VoxCPM2SeqPayload:
 
 class VoxCPM2Engine(LLMEngineBase):
     def __init__(self, config: Config[VoxCPM2Config]):
-        self.n_decode_pad_frames = 8
+        self.n_decode_pad_frames = 12
         self.feat_dim = config.model_config.feat_dim
         self.patch_size = config.model_config.patch_size
         self.audio_start_token = 101
