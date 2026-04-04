@@ -1,5 +1,6 @@
 import base64
 
+import numpy as np
 import pytest
 
 pytest.importorskip("fastapi")
@@ -214,7 +215,8 @@ def test_generate_latents_prompt_hits_latents_decode_branch(app, monkeypatch):
     monkeypatch.setattr(generate_route, "stream_mp3", consume_then_empty_stream_mp3)
 
     with TestClient(app) as client:
-        latents_b64 = base64.b64encode(b"LATENTS").decode("utf-8")
+        latents = np.arange(64, dtype=np.float32).tobytes()
+        latents_b64 = base64.b64encode(latents).decode("utf-8")
         with client.stream(
             "POST",
             "/generate",
