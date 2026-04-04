@@ -30,7 +30,7 @@ jobs:
         run: uv pip install -e . --no-deps
 
       - name: Install test deps
-        run: uv pip install -U pytest pytest-cov black ruff mypy
+        run: uv pip install -U pytest pytest-cov "black==26.3.1" ruff mypy
 
       - name: Install CPU torch (best effort)
         run: |

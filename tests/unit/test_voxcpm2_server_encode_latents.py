@@ -3,7 +3,6 @@ import io
 import numpy as np
 import pytest
 
-
 torch = pytest.importorskip("torch")
 
 
