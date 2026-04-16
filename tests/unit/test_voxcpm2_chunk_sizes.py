@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import warnings
 
 torch = pytest.importorskip("torch")
 
@@ -118,6 +119,9 @@ def test_voxcpm2_runner_slices_decoded_waveform_with_decoder_chunk_size(monkeypa
 
     runner.vae = _FakeVAE()
 
+    padding_decode = np.zeros((2, runner.feat_dim), dtype=np.float32)
+    padding_decode.setflags(write=False)
+
     seq = type(
         "_Seq",
         (),
@@ -126,11 +130,13 @@ def test_voxcpm2_runner_slices_decoded_waveform_with_decoder_chunk_size(monkeypa
                 text_tokens=np.array([1], dtype=np.int64),
                 feats=np.zeros((1, runner.patch_size, runner.feat_dim), dtype=np.float32),
                 feat_masks=np.array([True], dtype=np.bool_),
-                padding_decode=np.zeros((2, runner.feat_dim), dtype=np.float32),
+                padding_decode=padding_decode,
             )
         },
     )()
 
-    outputs = runner.run([seq], is_prefill=False)
+    with warnings.catch_warnings(record=True) as caught:
+        outputs = runner.run([seq], is_prefill=False)
 
     assert outputs[0]["waveforms"].tolist() == list(range(6, 18))
+    assert not [warning for warning in caught if "not writable" in str(warning.message)]
