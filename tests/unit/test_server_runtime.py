@@ -1,4 +1,7 @@
 import asyncio
+import queue
+
+from nanovllm_voxcpm.models.server_runtime import _QueueBridgeThread, resolve_recv_queue_mode
 
 
 def test_async_server_pool_caches_model_info_after_ready():
@@ -39,5 +42,33 @@ def test_async_server_pool_caches_model_info_after_ready():
         assert second["sample_rate"] == 16000
         assert [server.wait_for_ready_calls for server in pool.servers] == [1, 1]
         assert sum(server.model_info_calls for server in pool.servers) == 1
+
+    asyncio.run(run())
+
+
+def test_resolve_recv_queue_mode_defaults_to_bridge(monkeypatch):
+    monkeypatch.delenv("NANOVLLM_RECV_QUEUE_MODE", raising=False)
+    assert resolve_recv_queue_mode() == "bridge"
+
+    monkeypatch.setenv("NANOVLLM_RECV_QUEUE_MODE", "to_thread")
+    assert resolve_recv_queue_mode() == "to_thread"
+
+    monkeypatch.setenv("NANOVLLM_RECV_QUEUE_MODE", "invalid")
+    assert resolve_recv_queue_mode() == "bridge"
+
+
+def test_queue_bridge_thread_forwards_messages():
+    async def run():
+        source_queue: queue.Queue[dict[str, object]] = queue.Queue()
+        target_queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+        bridge = _QueueBridgeThread(source_queue, asyncio.get_running_loop(), target_queue, poll_timeout_s=0.01)
+
+        bridge.start()
+        source_queue.put({"type": "response", "id": "op-1", "data": 123})
+
+        forwarded = await asyncio.wait_for(target_queue.get(), timeout=0.5)
+        await bridge.stop()
+
+        assert forwarded == {"type": "response", "id": "op-1", "data": 123}
 
     asyncio.run(run())

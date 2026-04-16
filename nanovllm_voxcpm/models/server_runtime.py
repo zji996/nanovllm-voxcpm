@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import threading
 import time
 import traceback
 import uuid
@@ -25,6 +26,49 @@ def gen_uuid() -> str:
 
 def normalize_devices(devices: list[int] | None) -> list[int]:
     return [0] if devices is None else list(devices)
+
+
+def resolve_recv_queue_mode() -> str:
+    mode = os.environ.get("NANOVLLM_RECV_QUEUE_MODE", "bridge").strip().lower()
+    return mode if mode in {"bridge", "to_thread"} else "bridge"
+
+
+class _QueueBridgeThread:
+    def __init__(
+        self,
+        source_queue: Any,
+        loop: asyncio.AbstractEventLoop,
+        target_queue: asyncio.Queue[dict[str, Any]],
+        poll_timeout_s: float = 0.25,
+    ) -> None:
+        self._source_queue = source_queue
+        self._loop = loop
+        self._target_queue = target_queue
+        self._poll_timeout_s = poll_timeout_s
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True, name="nanovllm-queue-bridge")
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                item = self._source_queue.get(timeout=self._poll_timeout_s)
+            except Empty:
+                continue
+            except (EOFError, OSError, ValueError):
+                break
+
+            try:
+                self._loop.call_soon_threadsafe(self._target_queue.put_nowait, item)
+            except RuntimeError:
+                break
+
+    async def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread.is_alive():
+            await asyncio.to_thread(self._thread.join, self._poll_timeout_s + 1.0)
 
 
 def run_server_main_loop(
@@ -124,17 +168,31 @@ class AsyncServerProcess:
 
         loop = asyncio.get_running_loop()
         self._init_fut: asyncio.Future[None] = loop.create_future()
+        self._recv_queue_mode = resolve_recv_queue_mode()
+        self._recv_bridge_queue: asyncio.Queue[dict[str, Any]] | None = None
+        self._recv_bridge: _QueueBridgeThread | None = None
+        if self._recv_queue_mode == "bridge":
+            self._recv_bridge_queue = asyncio.Queue()
+            self._recv_bridge = _QueueBridgeThread(self.queue_out, loop, self._recv_bridge_queue)
+            self._recv_bridge.start()
         self.recv_task: asyncio.Task[None] = asyncio.create_task(self.recv_queue())
         self.op_table: dict[str, asyncio.Future[Any]] = {}
         self.stream_table: dict[str, asyncio.Queue[Waveform | None]] = {}
 
+    async def _get_next_queue_out_message(self) -> dict[str, Any]:
+        if self._recv_bridge_queue is not None:
+            return await self._recv_bridge_queue.get()
+
+        while True:
+            try:
+                return await asyncio.to_thread(self.queue_out.get, timeout=1)
+            except Empty:
+                continue
+
     async def recv_queue(self) -> None:
         try:
             while True:
-                try:
-                    res = await asyncio.to_thread(self.queue_out.get, timeout=1)
-                except Empty:
-                    continue
+                res = await self._get_next_queue_out_message()
 
                 if res.get("type") == "init_ok":
                     if not self._init_fut.done():
@@ -197,6 +255,9 @@ class AsyncServerProcess:
                 graceful_stop = True
             except Exception:
                 pass
+
+        if self._recv_bridge is not None:
+            await self._recv_bridge.stop()
 
         self.recv_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
