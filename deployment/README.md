@@ -44,7 +44,10 @@ Environment variables:
 - Server pool startup (read at startup):
   - `NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS` (int, default `8192`)
   - `NANOVLLM_SERVERPOOL_MAX_NUM_SEQS` (int, default `16`)
-  - `NANOVLLM_SERVERPOOL_MAX_MODEL_LEN` (int, default `4096`)
+  - `NANOVLLM_SERVERPOOL_MAX_MODEL_LEN`
+    - if unset, defaults to `max_length` from the model `config.json`
+    - for the repo-local `VoxCPM2` model this resolves to `8192`
+    - fallback default is `4096` only when the model config cannot be read
   - `NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION` (float, default `0.92`, allowed `(0, 1]`)
   - `NANOVLLM_SERVERPOOL_ENFORCE_EAGER` (bool, default `false`; accepts `1/0,true/false,yes/no,on/off`)
   - `NANOVLLM_SERVERPOOL_DEVICES` (comma-separated ints, default `0`; e.g. `0,1`)
@@ -97,10 +100,12 @@ OpenAPI:
 
 - local manage.sh path: http://localhost:8010/docs
 - container/default uvicorn path: http://localhost:8020/docs
+- detailed API reference: `docs/reference/http-api.md`
 
 Runtime tuning notes:
 
 - 推荐默认组合是 `sdpa + enforce_eager=false + gpu_memory_utilization=0.92`
+- 当前 `VoxCPM2` deployment 默认会把 `max_model_len` 跟到模型配置里的 `max_length=8192`
 - 如果这台机器后续主要用于托管，优先从这组默认开始，不建议先把显存占用直接顶到 `0.95+`
 - 更详细的 `CUDA graph` 行为说明和 smoke 命令见 `docs/reference/cudagraph-runtime.md`
 
@@ -115,6 +120,7 @@ Runtime tuning notes:
 - 默认使用 `GPU 0`：`CUDA_VISIBLE_DEVICES=0`
 - 服务监听宿主机 `8020`
 - 默认运行参数是 `sdpa + enforce_eager=false + gpu_memory_utilization=0.92`
+- `max_model_len` 默认跟随模型 `config.json`，对 `VoxCPM2` 会自动取到 `8192`
 
 最小启动方式:
 
@@ -133,6 +139,7 @@ docker compose up -d --build
 CUDA_VISIBLE_DEVICES=0 \
 NANOVLLM_MODEL_PATH=/models/VoxCPM2 \
 NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION=0.92 \
+NANOVLLM_SERVERPOOL_MAX_MODEL_LEN=8192 \
 docker compose up -d --build
 ```
 
@@ -223,6 +230,15 @@ Outputs:
 
 Returns model metadata from core (`sample_rate/channels/feat_dim/...`) plus MP3 encoder config.
 
+流式和上限相关的关键字段:
+
+- `model.configured_max_model_len`: 当前服务实例实际采用的 runtime 上下文上限
+- `model.model_max_length`: 模型 `config.json` 里的 `max_length`
+- `model.max_position_embeddings`: 底层 LM 的位置编码上限
+- `model.default_max_generate_length`: API 默认生成步数
+- `model.approx_step_audio_seconds`: 单个 generation step 大约产出多少秒音频
+- `model.approx_max_audio_seconds_no_prompt`: 零样本且不带额外 prompt 时的大致最长音频时长
+
 ### Metrics
 
 `GET /metrics`
@@ -266,7 +282,38 @@ Request body (JSON):
 Response:
 
 - `Content-Type: audio/mpeg`
-- body is a streamed MP3 byte stream
+- body is a streamed MP3 byte stream, not JSON
+- clients should read it incrementally as bytes; do not wait for a final structured payload
 - headers:
   - `X-Audio-Sample-Rate`
   - `X-Audio-Channels`
+
+一个最小 `curl` 示例:
+
+```bash
+curl -X POST http://127.0.0.1:8020/generate \
+  -H 'Content-Type: application/json' \
+  -o out.mp3 \
+  -d '{
+    "target_text": "Please speak clearly.",
+    "max_generate_length": 200
+  }'
+```
+
+一个最小 Python 流式消费示例:
+
+```python
+import requests
+
+resp = requests.post(
+    "http://127.0.0.1:8020/generate",
+    json={"target_text": "Please speak clearly.", "max_generate_length": 200},
+    stream=True,
+)
+resp.raise_for_status()
+
+with open("out.mp3", "wb") as f:
+    for chunk in resp.iter_content(chunk_size=8192):
+        if chunk:
+            f.write(chunk)
+```

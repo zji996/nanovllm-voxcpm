@@ -12,6 +12,7 @@
 常用参考:
 
 - Docker 构建与运行: `docs/reference/docker-deployment.md`
+- HTTP API 参考: `docs/reference/http-api.md`
 - 当前运行基线: `docs/reference/runtime-baseline.md`
 - CUDA graph 与部署建议: `docs/reference/cudagraph-runtime.md`
 - Runtime benchmark 面板: `docs/reference/runtime-benchmarking.md`
