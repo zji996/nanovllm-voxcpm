@@ -23,11 +23,14 @@
 - 环境安装: `uv sync --all-packages --frozen`
 - CUDA 架构: `TORCH_CUDA_ARCH_LIST=8.6`
 - 注意力后端: `NANOVLLM_ATTENTION_BACKEND=sdpa`
+- `gpu_memory_utilization`: 默认 `0.92`
+- `enforce_eager`: 默认 `false`
 - 模型下载源: 默认 `modelscope` (`OpenBMB/VoxCPM2`)，也支持 `huggingface` (`openbmb/VoxCPM2`)
 
 ## 现有已知约束
 
 - 推理路径依赖 CUDA，不支持 CPU-only 运行
 - `flash-attn` 现在是可选加速依赖，未安装时会回退到 PyTorch SDPA
+- 当前推荐把 `CUDA graph` 作为默认 decode 路径，详细说明见 `docs/reference/cudagraph-runtime.md`
 - `8000` 端口当前已被其他进程占用，不适合作为默认本地端口
 - Docker 构建与运行命令已单独整理到 `docs/reference/docker-deployment.md`

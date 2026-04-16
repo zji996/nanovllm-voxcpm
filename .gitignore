@@ -211,3 +211,6 @@ uv.lock
 
 # Local model artifacts used for repo-level debugging.
 /models
+
+# Local benchmark outputs.
+/benchmark/results/

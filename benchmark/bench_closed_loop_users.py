@@ -537,7 +537,7 @@ async def async_main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-num-batched-tokens", type=int, default=16384)
     p.add_argument("--max-num-seqs", type=int, default=512)
     p.add_argument("--max-model-len", type=int, default=4096)
-    p.add_argument("--gpu-memory-utilization", type=float, default=0.9)
+    p.add_argument("--gpu-memory-utilization", type=float, default=0.92)
     p.add_argument("--enforce-eager", action="store_true")
 
     p.add_argument("--target-text", default=DEFAULT_TEXT)

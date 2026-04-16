@@ -122,7 +122,7 @@ async def main() -> None:
         devices=[0],
         max_num_batched_tokens=8192,
         max_num_seqs=16,
-        gpu_memory_utilization=0.95,
+        gpu_memory_utilization=0.92,
     )
     await server.wait_for_ready()
 
@@ -181,6 +181,7 @@ The HTTP server demo is documented separately to keep this README focused:
 
 - `deployment/README.md`
 - `docs/reference/docker-deployment.md`
+- `docs/reference/cudagraph-runtime.md`
 
 If you want the deployment server dependencies too, use:
 
@@ -207,6 +208,17 @@ uv run python benchmark/bench_inference.py --model ~/VoxCPM1.5 --devices 0 --con
 ```
 
 See `benchmark/README.md` for more flags.
+
+### Recommended Runtime Defaults
+
+Current recommended defaults for a dedicated `GPU 0` runtime are:
+
+- `gpu_memory_utilization=0.92`
+- `enforce_eager=False`
+- `NANOVLLM_ATTENTION_BACKEND=sdpa`
+
+The detailed rationale, smoke commands, and deployment advice live in
+`docs/reference/cudagraph-runtime.md`.
 
 ### Reference Results (RTX 4090)
 

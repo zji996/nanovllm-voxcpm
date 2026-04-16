@@ -97,7 +97,7 @@ def test_load_config_validates_serverpool(monkeypatch):
     with pytest.raises(RuntimeError, match=r"NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION must be in \(0, 1\]"):
         load_config()
 
-    monkeypatch.setenv("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", "0.95")
+    monkeypatch.setenv("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", "0.92")
     monkeypatch.setenv("NANOVLLM_SERVERPOOL_DEVICES", " , ")
     with pytest.raises(RuntimeError, match="Invalid env NANOVLLM_SERVERPOOL_DEVICES"):
         load_config()
@@ -124,3 +124,4 @@ def test_load_config_expands_user_paths(monkeypatch):
     cfg = load_config()
     assert cfg.model_path == os.path.expanduser("~/VoxCPM1.5")
     assert cfg.lora.cache_dir == os.path.expanduser("~/.cache/nanovllm")
+    assert cfg.server_pool.gpu_memory_utilization == 0.92

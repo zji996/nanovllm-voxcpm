@@ -9,6 +9,7 @@ def test_config_post_init_asserts(tmp_path):
 
     cfg = Config(model=str(model_dir))
     assert cfg.model == str(model_dir)
+    assert cfg.gpu_memory_utilization == 0.92
 
     with pytest.raises(AssertionError):
         _ = Config(model=str(model_dir), kvcache_block_size=128)

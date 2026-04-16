@@ -328,7 +328,7 @@ class AsyncServerPool(Generic[TAsyncServer]):
         max_num_batched_tokens: int = 16384,
         max_num_seqs: int = 512,
         max_model_len: int = 4096,
-        gpu_memory_utilization: float = 0.9,
+        gpu_memory_utilization: float = 0.92,
         enforce_eager: bool = False,
         devices: list[int] | None = None,
         lora_config: Any = None,

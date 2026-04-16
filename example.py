@@ -13,7 +13,7 @@ async def main():
         max_num_batched_tokens=8192,
         max_num_seqs=16,
         max_model_len=4096,
-        gpu_memory_utilization=0.95,
+        gpu_memory_utilization=0.92,
         enforce_eager=False,
         devices=[0],
     )
