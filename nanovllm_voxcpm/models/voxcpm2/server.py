@@ -1,13 +1,11 @@
 import io
-import os
-from typing import AsyncGenerator, cast
+from typing import Any, AsyncGenerator
 
 import librosa
 import numpy as np
 import torch
-from typing_extensions import Literal, TypedDict
 
-from nanovllm_voxcpm.config import Config
+from nanovllm_voxcpm.models.base_server import BaseModelServerImpl, ExtendedModelInfoResponse
 from nanovllm_voxcpm.models.server_runtime import (
     AsyncServerPool,
     AsyncServerProcess,
@@ -17,88 +15,27 @@ from nanovllm_voxcpm.models.server_runtime import (
 )
 from nanovllm_voxcpm.models.voxcpm2.config import LoRAConfig, VoxCPM2Config
 from nanovllm_voxcpm.models.voxcpm2.engine import VoxCPM2Engine
-from nanovllm_voxcpm.models.voxcpm2.runner import VoxCPM2Runner
-from nanovllm_voxcpm.utils.loader import load_lora_weights
 from nanovllm_voxcpm.utils.torch_numpy import float32_array_from_buffer, torch_from_numpy_writable
 
 
-class HealthResponse(TypedDict):
-    status: Literal["ok"]
+class ModelInfoResponse(ExtendedModelInfoResponse):
+    pass
 
 
-class SetLoraEnabledResponse(TypedDict):
-    status: Literal["ok"]
-    lora_enabled: bool
+class VoxCPM2ServerImpl(BaseModelServerImpl[VoxCPM2Config]):
+    config_cls = VoxCPM2Config
+    engine_cls = VoxCPM2Engine
 
+    def _init_model_info_from_runner(self, model_runner: Any) -> None:
+        self.encoder_sample_rate = int(model_runner.vae.sample_rate)
+        self.output_sample_rate = int(model_runner.vae.out_sample_rate)
+        self.sample_rate = self.output_sample_rate
 
-class LoadLoraResponse(TypedDict):
-    status: Literal["ok"]
-    loaded_keys: int
-    skipped_keys: int
-
-
-class ResetLoraResponse(TypedDict):
-    status: Literal["ok"]
-
-
-class ModelInfoResponse(TypedDict):
-    sample_rate: int
-    encoder_sample_rate: int
-    output_sample_rate: int
-    channels: int
-    feat_dim: int
-    patch_size: int
-    model_path: str
-
-
-class VoxCPM2ServerImpl:
-    def __init__(
-        self,
-        model_path: str,
-        inference_timesteps: int = 10,
-        max_num_batched_tokens: int = 16384,
-        max_num_seqs: int = 512,
-        max_model_len: int = 4096,
-        gpu_memory_utilization: float = 0.9,
-        enforce_eager: bool = False,
-        devices: list[int] | None = None,
-        lora_config: LoRAConfig | None = None,
-    ):
-        devices = normalize_devices(devices)
-        model_config = VoxCPM2Config.model_validate_json(open(os.path.join(model_path, "config.json")).read())
-        model_config.inference_timesteps = inference_timesteps
-        self.lora_config = lora_config
-        self.model_path = model_path
-
-        engine_config = Config(
-            model=model_path,
-            max_num_batched_tokens=max_num_batched_tokens,
-            max_num_seqs=max_num_seqs,
-            max_model_len=max_model_len,
-            gpu_memory_utilization=gpu_memory_utilization,
-            enforce_eager=enforce_eager,
-            model_config=model_config,
-            devices=devices,
-            lora_config=lora_config,
-        )
-        self.llm = VoxCPM2Engine(engine_config)
-        model_runner = cast(VoxCPM2Runner, self.llm.model_runner)
-        self.encoder_sample_rate = model_runner.vae.sample_rate
-        self.output_sample_rate = model_runner.vae.out_sample_rate
-
-    def health(self) -> HealthResponse:
-        return HealthResponse(status="ok")
-
-    def get_model_info(self) -> ModelInfoResponse:
-        return ModelInfoResponse(
-            sample_rate=int(self.output_sample_rate),
-            encoder_sample_rate=int(self.encoder_sample_rate),
-            output_sample_rate=int(self.output_sample_rate),
-            channels=1,
-            feat_dim=int(self.llm.feat_dim),
-            patch_size=int(self.llm.patch_size),
-            model_path=str(self.model_path),
-        )
+    def _get_model_info_extra_fields(self) -> dict[str, int]:
+        return {
+            "encoder_sample_rate": int(self.encoder_sample_rate),
+            "output_sample_rate": int(self.output_sample_rate),
+        }
 
     def encode_latents(self, wav: bytes, wav_format: str) -> bytes:
         wav_np, _ = librosa.load(io.BytesIO(wav), sr=self.encoder_sample_rate, mono=False)
@@ -108,9 +45,7 @@ class VoxCPM2ServerImpl:
         if wav_tensor.size(0) > 1:
             wav_tensor = wav_tensor.mean(dim=0, keepdim=True)
         wav_tensor = wav_tensor.cuda()
-        latents = self.llm.encode_latents(wav_tensor)
-        assert latents.shape[0] % self.llm.patch_size == 0
-        return latents.tobytes()
+        return self._encode_latents_from_tensor(wav_tensor)
 
     def add_request(
         self,
@@ -155,36 +90,6 @@ class VoxCPM2ServerImpl:
             temperature=temperature,
             cfg_value=cfg_value,
         )
-
-    def cancel(self, seq_id: str):
-        self.llm.cancel_sequence(seq_id)
-
-    def step(self):
-        return self.llm.step()
-
-    def is_finished(self):
-        return self.llm.is_finished()
-
-    def set_lora_enabled(self, enabled: bool) -> SetLoraEnabledResponse:
-        if self.lora_config is None:
-            raise RuntimeError("LoRA is not configured for this model")
-        model = cast(VoxCPM2Runner, self.llm.model_runner).model
-        model.set_lora_enabled(enabled)
-        return SetLoraEnabledResponse(status="ok", lora_enabled=enabled)
-
-    def load_lora(self, lora_path: str) -> LoadLoraResponse:
-        if self.lora_config is None:
-            raise RuntimeError("LoRA is not configured for this model. Initialize with lora_config.")
-        model = cast(VoxCPM2Runner, self.llm.model_runner).model
-        loaded, skipped = load_lora_weights(model, lora_path, device="cuda")
-        return LoadLoraResponse(status="ok", loaded_keys=len(loaded), skipped_keys=len(skipped))
-
-    def reset_lora(self) -> ResetLoraResponse:
-        if self.lora_config is None:
-            raise RuntimeError("LoRA is not configured for this model")
-        model = cast(VoxCPM2Runner, self.llm.model_runner).model
-        model.reset_lora_parameters()
-        return ResetLoraResponse(status="ok")
 
 
 class AsyncVoxCPM2Server(AsyncServerProcess):
