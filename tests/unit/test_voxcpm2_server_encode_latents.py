@@ -1,4 +1,5 @@
 import io
+import warnings
 
 import numpy as np
 import pytest
@@ -27,17 +28,21 @@ def test_encode_latents_uses_librosa_resample(monkeypatch):
         assert isinstance(file_obj, io.BytesIO)
         captured["target_sr"] = sr
         captured["mono"] = mono
-        return np.array([0.1, 0.2, 0.3], dtype=np.float32), sr
+        wav = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        wav.setflags(write=False)
+        return wav, sr
 
     monkeypatch.setattr("nanovllm_voxcpm.models.voxcpm2.server.librosa.load", _fake_librosa_load)
     monkeypatch.setattr(torch.Tensor, "cuda", lambda self: self, raising=False)
 
-    out = server.encode_latents(b"fake-wav-bytes", wav_format="wav")
+    with warnings.catch_warnings(record=True) as caught:
+        out = server.encode_latents(b"fake-wav-bytes", wav_format="wav")
 
     assert isinstance(out, bytes)
     assert captured["target_sr"] == 16000
     assert captured["mono"] is False
     assert tuple(captured["wav_tensor"].shape) == (1, 3)
+    assert not [warning for warning in caught if "not writable" in str(warning.message)]
 
 
 def test_get_model_info_uses_output_sample_rate():

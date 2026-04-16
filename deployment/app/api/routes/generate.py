@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from numpy.typing import NDArray
 
+from nanovllm_voxcpm.utils.torch_numpy import float32_array_from_buffer
+
 from app.api.deps import get_server
 from app.core.metrics import (
     GENERATE_AUDIO_SECONDS_TOTAL,
@@ -28,7 +30,7 @@ def _decode_latents_base64(value: str, field_name: str, feat_dim: int) -> bytes:
         raise HTTPException(status_code=400, detail=f"Invalid base64 in {field_name}: {e}") from e
 
     try:
-        np.frombuffer(latents, dtype=np.float32).reshape(-1, feat_dim)
+        float32_array_from_buffer(latents, feat_dim)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid latent payload in {field_name}: {e}") from e
 
