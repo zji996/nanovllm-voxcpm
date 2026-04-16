@@ -1,0 +1,39 @@
+services:
+  voxcpm:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    image: nano-vllm-voxcpm-deployment:latest
+    restart: unless-stopped
+    gpus: all
+    ports:
+      - "${NANOVLLM_HTTP_PORT:-8020}:8020"
+    environment:
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+      NANOVLLM_MODEL_PATH: "${NANOVLLM_MODEL_PATH:-/models/VoxCPM2}"
+      NANOVLLM_CACHE_DIR: /var/cache/nanovllm
+      NANOVLLM_ATTENTION_BACKEND: "${NANOVLLM_ATTENTION_BACKEND:-sdpa}"
+      NANOVLLM_SERVERPOOL_DEVICES: "${NANOVLLM_SERVERPOOL_DEVICES:-0}"
+      NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION: "${NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION:-0.92}"
+      NANOVLLM_SERVERPOOL_ENFORCE_EAGER: "${NANOVLLM_SERVERPOOL_ENFORCE_EAGER:-false}"
+      NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS: "${NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS:-8192}"
+      NANOVLLM_SERVERPOOL_MAX_NUM_SEQS: "${NANOVLLM_SERVERPOOL_MAX_NUM_SEQS:-16}"
+      NANOVLLM_SERVERPOOL_MAX_MODEL_LEN: "${NANOVLLM_SERVERPOOL_MAX_MODEL_LEN:-4096}"
+    volumes:
+      - ./models:/models:ro
+      - nanovllm-cache:/var/cache/nanovllm
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8020/ready', timeout=5).read()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+volumes:
+  nanovllm-cache:

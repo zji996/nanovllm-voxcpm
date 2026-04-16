@@ -45,7 +45,7 @@ Environment variables:
   - `NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS` (int, default `8192`)
   - `NANOVLLM_SERVERPOOL_MAX_NUM_SEQS` (int, default `16`)
   - `NANOVLLM_SERVERPOOL_MAX_MODEL_LEN` (int, default `4096`)
-  - `NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION` (float, default `0.95`, allowed `(0, 1]`)
+  - `NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION` (float, default `0.92`, allowed `(0, 1]`)
   - `NANOVLLM_SERVERPOOL_ENFORCE_EAGER` (bool, default `false`; accepts `1/0,true/false,yes/no,on/off`)
   - `NANOVLLM_SERVERPOOL_DEVICES` (comma-separated ints, default `0`; e.g. `0,1`)
 
@@ -81,6 +81,8 @@ From the repo root:
 ```bash
 NANOVLLM_MODEL_PATH=./models/VoxCPM2 \
 NANOVLLM_SERVERPOOL_DEVICES=0 \
+NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION=0.92 \
+NANOVLLM_SERVERPOOL_ENFORCE_EAGER=false \
 NANOVLLM_ATTENTION_BACKEND=sdpa \
 uv run fastapi run deployment/app/main.py --host 0.0.0.0 --port 8010
 ```
@@ -95,6 +97,64 @@ OpenAPI:
 
 - local manage.sh path: http://localhost:8010/docs
 - container/default uvicorn path: http://localhost:8020/docs
+
+Runtime tuning notes:
+
+- 推荐默认组合是 `sdpa + enforce_eager=false + gpu_memory_utilization=0.92`
+- 如果这台机器后续主要用于托管，优先从这组默认开始，不建议先把显存占用直接顶到 `0.95+`
+- 更详细的 `CUDA graph` 行为说明和 smoke 命令见 `docs/reference/cudagraph-runtime.md`
+
+## Docker Compose
+
+仓库根目录现在提供了一个开箱即用的 [`compose.yaml`](/home/zji/docker/nanovllm-voxcpm/compose.yaml)。
+
+默认行为:
+
+- 构建 `deployment/Dockerfile`
+- 把宿主机 `./models` 挂载到容器 `/models`
+- 默认使用 `GPU 0`：`CUDA_VISIBLE_DEVICES=0`
+- 服务监听宿主机 `8020`
+- 默认运行参数是 `sdpa + enforce_eager=false + gpu_memory_utilization=0.92`
+
+最小启动方式:
+
+```bash
+docker compose up -d --build
+```
+
+默认情况下它会读取:
+
+- 模型目录: `./models/VoxCPM2`
+- 缓存卷: `nanovllm-cache`
+
+常见自定义:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+NANOVLLM_MODEL_PATH=/models/VoxCPM2 \
+NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION=0.92 \
+docker compose up -d --build
+```
+
+查看状态:
+
+```bash
+docker compose ps
+docker compose logs -f voxcpm
+curl -f http://127.0.0.1:8020/ready
+```
+
+停止:
+
+```bash
+docker compose down
+```
+
+前提:
+
+- 已安装 Docker Compose v2
+- 已安装 NVIDIA Container Toolkit
+- 宿主机上 `./models/VoxCPM2` 已准备好
 
 ## Tests
 
