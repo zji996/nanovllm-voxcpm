@@ -42,6 +42,7 @@ uv sync --package nano-vllm-voxcpm-deployment --frozen
 Notes:
 - Run commands inside the managed env: `uv run <cmd...>`
 - Prefer `uv sync --frozen`/`uv sync --all-packages --frozen` to keep `uv.lock` stable
+- Do not casually trigger a source build of `flash-attn` without resource limits. Prefer the SDPA fallback unless FlashAttention is explicitly required. If a local `flash-attn` build is necessary, set conservative limits first (for example `MAX_JOBS=1` and, when using CUDA builds, `NVCC_THREADS=1`) to avoid exhausting host RAM/CPU.
 
 ## Run
 

@@ -31,7 +31,7 @@ Note: `uv sync --frozen` (without `--all-packages/--package`) only syncs the roo
 
 Environment variables:
 
-- `NANOVLLM_MODEL_PATH` (default `~/VoxCPM1.5`)
+- `NANOVLLM_MODEL_PATH` (recommended local value `./models/VoxCPM2`; deployment default `~/VoxCPM1.5`)
 - MP3 encoding (read at startup):
   - `NANOVLLM_MP3_BITRATE_KBPS` (int, default `192`)
   - `NANOVLLM_MP3_QUALITY` (int, default `2`, allowed `0..2`)
@@ -61,21 +61,40 @@ If `lora_config.json` exists, the service will read `lora_config` from it to ini
 
 ## Run
 
+Preferred local entrypoint from the repo root:
+
+```bash
+./manage.sh dev api
+```
+
+This uses:
+
+- model path `./models/VoxCPM2`
+- devices `0`
+- port `8010`
+- attention backend `sdpa`
+
+Manual equivalent:
+
 From the repo root:
 
 ```bash
-uv run fastapi run deployment/app/main.py --host 0.0.0.0 --port 8000
+NANOVLLM_MODEL_PATH=./models/VoxCPM2 \
+NANOVLLM_SERVERPOOL_DEVICES=0 \
+NANOVLLM_ATTENTION_BACKEND=sdpa \
+uv run fastapi run deployment/app/main.py --host 0.0.0.0 --port 8010
 ```
 
 Alternatively (matches the container entrypoint):
 
 ```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8020
 ```
 
 OpenAPI:
 
-- http://localhost:8000/docs
+- local manage.sh path: http://localhost:8010/docs
+- container/default uvicorn path: http://localhost:8020/docs
 
 ## Tests
 
@@ -96,11 +115,17 @@ docker build -f deployment/Dockerfile -t nano-vllm-voxcpm-deployment:latest .
 Run:
 
 ```bash
-docker run --rm -p 8000:8000 \
+docker run --rm --gpus all -p 8020:8020 \
   -e NANOVLLM_MODEL_PATH=/models/VoxCPM1.5 \
   -e NANOVLLM_CACHE_DIR=/var/cache/nanovllm \
   -v /path/to/models:/models \
   nano-vllm-voxcpm-deployment:latest
+```
+
+Health check:
+
+```bash
+curl -f http://127.0.0.1:8020/ready
 ```
 
 Notes:
@@ -108,6 +133,7 @@ Notes:
 - GPU: on a GPU node you typically need `--gpus all` (Docker) or the NVIDIA device plugin (k8s).
 - The container runs as a non-root user (uid `10001`) and uses `NANOVLLM_CACHE_DIR` for writable cache.
 - Probes: use `GET /health` (liveness) and `GET /ready` (readiness).
+- The image now exposes `8020` by default to avoid colliding with hosts that already use `8000`.
 
 ## Client example
 

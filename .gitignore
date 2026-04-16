@@ -208,4 +208,6 @@ uv.lock
 
 # Opencode
 /.memory
+
+# Local model artifacts used for repo-level debugging.
 /models

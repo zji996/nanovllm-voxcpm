@@ -31,7 +31,7 @@ Note: the optional FastAPI demo service (`deployment/`) is not published on PyPI
 
 - Linux + NVIDIA GPU (CUDA)
 - Python >= 3.10
-- `flash-attn` is required (the package imports it at runtime)
+- `flash-attn` is optional; if unavailable the project falls back to PyTorch SDPA
 
 The runtime is GPU-centric (Triton + FlashAttention). CPU-only execution is not supported.
 
@@ -49,7 +49,38 @@ Dev deps (tests):
 uv sync --frozen --dev
 ```
 
+Preferred local workflow for this repo:
+
+```bash
+./manage.sh setup env
+./manage.sh setup model
+./manage.sh dev api
+```
+
+This downloads `OpenBMB/VoxCPM2` from ModelScope into the repo-local, gitignored `./models/VoxCPM2`
+directory, starts the FastAPI service on port `8010`, and defaults to `GPU 0`.
+The local service entrypoint also defaults `NANOVLLM_ATTENTION_BACKEND=sdpa`
+to avoid requiring `flash-attn` during setup.
+
 Note: `flash-attn` may require additional system CUDA tooling depending on your environment.
+
+`./manage.sh setup model` now defaults to ModelScope. If you want to force the explicit ModelScope entrypoint, use:
+
+```bash
+./manage.sh setup modelscope
+```
+
+If you want to force Hugging Face instead, use:
+
+```bash
+./manage.sh setup huggingface
+```
+
+You can still override the source-specific repo or pin a revision:
+
+```bash
+MODEL_REPO=OpenBMB/VoxCPM2 MODEL_REVISION=<revision> ./manage.sh setup modelscope
+```
 
 ## Basic Usage
 
@@ -149,6 +180,7 @@ See the public API in `nanovllm_voxcpm/models/voxcpm2/server.py` for details.
 The HTTP server demo is documented separately to keep this README focused:
 
 - `deployment/README.md`
+- `docs/reference/docker-deployment.md`
 
 If you want the deployment server dependencies too, use:
 

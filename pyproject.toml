@@ -20,10 +20,12 @@ dependencies = [
     "numpy",
     "librosa",
     "pydantic",
-    "flash-attn",
     "soundfile>=0.13.1",
     "torchcodec",
 ]
+
+[project.optional-dependencies]
+flash = ["flash-attn"]
 
 [project.urls]
 Homepage="https://github.com/a710128/nanovllm-voxcpm"

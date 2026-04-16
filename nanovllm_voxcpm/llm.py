@@ -1,17 +1,9 @@
-import os
-import json
-from huggingface_hub import snapshot_download
-from typing import Any, List
 import asyncio
+import json
+import os
+from typing import Any
 
-try:
-    # Import to ensure flash-attn is actually importable at runtime.
-    # ruff: this is a dependency check, not a used symbol.
-    import flash_attn  # noqa: F401
-except ImportError:
-    raise ImportError(
-        "flash-attn is not installed. Please install it with `pip install flash-attn --no-build-isolation`"
-    )
+from huggingface_hub import snapshot_download
 
 
 class VoxCPM:
@@ -24,7 +16,7 @@ class VoxCPM:
         max_model_len: int = 4096,
         gpu_memory_utilization: float = 0.9,
         enforce_eager: bool = False,
-        devices: List[int] = [],
+        devices: list[int] | None = None,
         lora_config: Any = None,
         **kwargs,
     ):
@@ -43,11 +35,12 @@ class VoxCPM:
         if not os.path.isfile(config_file):
             raise FileNotFoundError(f"Config file `{config_file}` not found")
 
-        config = json.load(open(config_file))
+        with open(config_file, encoding="utf-8") as f:
+            config = json.load(f)
 
         arch = config["architecture"]
 
-        if len(devices) == 0:
+        if not devices:
             devices = [0]
 
         try:
