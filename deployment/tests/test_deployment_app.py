@@ -37,6 +37,12 @@ class FakeServerPool:
             "feat_dim": 64,
             "patch_size": 2,
             "model_path": "/fake/model",
+            "configured_max_model_len": 8192,
+            "model_max_length": 8192,
+            "max_position_embeddings": 32768,
+            "default_max_generate_length": 2000,
+            "approx_step_audio_seconds": 0.16,
+            "approx_max_audio_seconds_no_prompt": 1310.72,
         }
 
     async def encode_latents(self, wav: bytes, wav_format: str):
@@ -94,6 +100,9 @@ def test_info(app):
         body = r.json()
         assert body["model"]["sample_rate"] == 48000
         assert body["model"]["channels"] == 1
+        assert body["model"]["configured_max_model_len"] == 8192
+        assert body["model"]["model_max_length"] == 8192
+        assert body["model"]["max_position_embeddings"] == 32768
 
 
 def test_encode_latents(app):

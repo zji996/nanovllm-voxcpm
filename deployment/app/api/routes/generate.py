@@ -84,9 +84,15 @@ def _validate_generate_prompt(req: GenerateRequest) -> None:
     "/generate",
     response_class=StreamingResponse,
     summary="Generate audio (streaming MP3)",
+    description=(
+        "Streams synthesized audio as `audio/mpeg`. "
+        "The response body is emitted incrementally as MP3 frames; clients should consume it as a byte stream "
+        "instead of waiting for a complete JSON payload. "
+        "Use `GET /info` to inspect the configured context limit and approximate duration ceiling."
+    ),
     responses={
         200: {
-            "description": "MP3 byte stream",
+            "description": "Streaming MP3 byte stream",
             "content": {
                 "audio/mpeg": {
                     "schema": {"type": "string", "format": "binary"},
@@ -100,6 +106,10 @@ def _validate_generate_prompt(req: GenerateRequest) -> None:
                 "X-Audio-Channels": {
                     "description": "Number of audio channels.",
                     "schema": {"type": "integer"},
+                },
+                "Transfer-Encoding": {
+                    "description": "Typically `chunked` for streaming responses.",
+                    "schema": {"type": "string"},
                 },
             },
         },

@@ -32,6 +32,36 @@ class ModelInfo(BaseModel):
         description="Resolved model path used by this instance.",
         examples=["/models/VoxCPM1.5"],
     )
+    configured_max_model_len: int | None = Field(
+        None,
+        description="Runtime max context length configured for this service instance.",
+        examples=[8192],
+    )
+    model_max_length: int | None = Field(
+        None,
+        description="Model-level max_length from config.json when available.",
+        examples=[8192],
+    )
+    max_position_embeddings: int | None = Field(
+        None,
+        description="Underlying LM max_position_embeddings when available.",
+        examples=[32768],
+    )
+    default_max_generate_length: int | None = Field(
+        None,
+        description="Default max_generate_length used by the API when the caller omits it.",
+        examples=[2000],
+    )
+    approx_step_audio_seconds: float | None = Field(
+        None,
+        description="Approximate audio seconds produced by one generation step.",
+        examples=[0.16],
+    )
+    approx_max_audio_seconds_no_prompt: float | None = Field(
+        None,
+        description="Approximate upper bound for zero-shot audio duration at the configured max_model_len.",
+        examples=[1310.72],
+    )
 
 
 class Mp3Info(BaseModel):
@@ -143,6 +173,14 @@ class GenerateRequest(BaseModel):
         description="(reference audio) Base64-encoded float32 bytes returned by /encode_latents.",
     )
 
-    max_generate_length: int = Field(2000, ge=1, description="Maximum number of model generation steps.")
+    max_generate_length: int = Field(
+        2000,
+        ge=1,
+        description=(
+            "Maximum number of model generation steps. "
+            "The effective upper bound is still limited by the runtime max_model_len "
+            "and current prompt length; see GET /info for the configured limit."
+        ),
+    )
     temperature: float = Field(1.0, ge=0.0, description="Sampling temperature.")
     cfg_value: float = Field(1.5, ge=0.0, description="Classifier-free guidance scale.")

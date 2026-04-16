@@ -35,6 +35,24 @@ async def info(request: Request, server: Any = Depends(get_server)) -> InfoRespo
             feat_dim=int(model_info["feat_dim"]),
             patch_size=int(model_info["patch_size"]),
             model_path=str(model_info["model_path"]),
+            configured_max_model_len=(
+                int(model_info["configured_max_model_len"]) if "configured_max_model_len" in model_info else None
+            ),
+            model_max_length=(int(model_info["model_max_length"]) if "model_max_length" in model_info else None),
+            max_position_embeddings=(
+                int(model_info["max_position_embeddings"]) if "max_position_embeddings" in model_info else None
+            ),
+            default_max_generate_length=(
+                int(model_info["default_max_generate_length"]) if "default_max_generate_length" in model_info else None
+            ),
+            approx_step_audio_seconds=(
+                float(model_info["approx_step_audio_seconds"]) if "approx_step_audio_seconds" in model_info else None
+            ),
+            approx_max_audio_seconds_no_prompt=(
+                float(model_info["approx_max_audio_seconds_no_prompt"])
+                if "approx_max_audio_seconds_no_prompt" in model_info
+                else None
+            ),
         ),
         lora=LoRAInfo(
             lora_uri=lora_state.get("lora_uri"),

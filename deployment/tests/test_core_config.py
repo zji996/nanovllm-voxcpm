@@ -1,4 +1,5 @@
 import os
+import json
 
 import pytest
 
@@ -125,3 +126,33 @@ def test_load_config_expands_user_paths(monkeypatch):
     assert cfg.model_path == os.path.expanduser("~/VoxCPM1.5")
     assert cfg.lora.cache_dir == os.path.expanduser("~/.cache/nanovllm")
     assert cfg.server_pool.gpu_memory_utilization == 0.92
+
+
+def test_load_config_defaults_max_model_len_from_model_config(tmp_path, monkeypatch):
+    from app.core.config import load_config
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(json.dumps({"max_length": 8192}), encoding="utf-8")
+
+    monkeypatch.setenv("NANOVLLM_MODEL_PATH", str(model_dir))
+    monkeypatch.delenv("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN", raising=False)
+
+    cfg = load_config()
+
+    assert cfg.server_pool.max_model_len == 8192
+
+
+def test_load_config_env_overrides_detected_max_model_len(tmp_path, monkeypatch):
+    from app.core.config import load_config
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(json.dumps({"max_length": 8192}), encoding="utf-8")
+
+    monkeypatch.setenv("NANOVLLM_MODEL_PATH", str(model_dir))
+    monkeypatch.setenv("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN", "4096")
+
+    cfg = load_config()
+
+    assert cfg.server_pool.max_model_len == 4096

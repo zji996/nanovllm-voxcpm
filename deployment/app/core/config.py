@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -88,6 +89,27 @@ class ServiceConfig:
     server_pool: ServerPoolStartupConfig
 
 
+def _detect_default_max_model_len(model_path: str, fallback: int = 4096) -> int:
+    config_path = os.path.join(model_path, "config.json")
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+    except (FileNotFoundError, OSError, ValueError, TypeError):
+        return fallback
+
+    max_length = config.get("max_length")
+    if isinstance(max_length, int) and max_length > 0:
+        return max_length
+
+    lm_config = config.get("lm_config")
+    if isinstance(lm_config, dict):
+        max_position_embeddings = lm_config.get("max_position_embeddings")
+        if isinstance(max_position_embeddings, int) and max_position_embeddings > 0:
+            return max_position_embeddings
+
+    return fallback
+
+
 def load_config() -> ServiceConfig:
     model_path = os.path.expanduser(os.environ.get("NANOVLLM_MODEL_PATH", "~/VoxCPM1.5"))
 
@@ -109,7 +131,10 @@ def load_config() -> ServiceConfig:
     # Server pool startup config (read at startup).
     pool_max_num_batched_tokens = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_BATCHED_TOKENS", 8192)
     pool_max_num_seqs = _get_int_env("NANOVLLM_SERVERPOOL_MAX_NUM_SEQS", 16)
-    pool_max_model_len = _get_int_env("NANOVLLM_SERVERPOOL_MAX_MODEL_LEN", 4096)
+    pool_max_model_len = _get_int_env(
+        "NANOVLLM_SERVERPOOL_MAX_MODEL_LEN",
+        _detect_default_max_model_len(model_path, fallback=4096),
+    )
     pool_gpu_memory_utilization = _get_float_env("NANOVLLM_SERVERPOOL_GPU_MEMORY_UTILIZATION", 0.92)
     pool_enforce_eager = _get_bool_env("NANOVLLM_SERVERPOOL_ENFORCE_EAGER", False)
     pool_devices = _get_int_list_env("NANOVLLM_SERVERPOOL_DEVICES", (0,))
