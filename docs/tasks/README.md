@@ -7,14 +7,12 @@
 
 ## 进行中
 
-- `Batch 1`: 本地工作流和 docs 路由收敛
-- `Batch 2`: Docker 默认值、部署说明和测试锁定
-- `Batch 3`: `voxcpm` / `voxcpm2` 共享 server lifecycle 抽取
-- `Batch 4`: 低风险 runtime 热路径优化与只读 NumPy 兼容修正
-- `Batch 5`: 建立性能基线与下一轮优化任务面板
+- `Batch 6`: 运行真实 benchmark，补齐收益排序和失败案例备注
 
 ## 已完成
 
+- `Batch 5`: `voxcpm` / `voxcpm2` 共享 server impl 抽取与 LoRA/metadata 收敛
+- `Batch 6` 工具侧: benchmark 面板、`recv_queue_mode` 对比开关和复现实验文档
 - 确认 `deployment` 服务可通过 `config.json` 自动分发到 `voxcpm` 或 `voxcpm2`
 - 确认 `8000` 端口已被占用，本地默认端口改为 `8010`
 - Docker 部署文档已收敛到 `docs/reference/docker-deployment.md`，容器默认端口改为 `8020`

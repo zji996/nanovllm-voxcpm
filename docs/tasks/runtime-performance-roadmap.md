@@ -16,8 +16,8 @@
 - `Batch 2`: 已完成，等待分批提交
 - `Batch 3`: 已完成，等待分批提交
 - `Batch 4`: 已完成，等待分批提交
-- `Batch 5`: 已建任务，待执行
-- `Batch 6`: 已建任务，待执行
+- `Batch 5`: 已完成，等待分批提交
+- `Batch 6`: benchmark 面板与实验命令已完成，待填实测数据
 
 ## 实施批次
 
@@ -158,7 +158,7 @@ uv run python -m compileall nanovllm_voxcpm/models/server_runtime.py nanovllm_vo
 
 ### Batch 5: 共享层下一步抽象
 
-状态: `待执行`
+状态: `已完成`
 
 目标:
 
@@ -184,12 +184,19 @@ uv run python -m compileall nanovllm_voxcpm/models/server_runtime.py nanovllm_vo
 
 ### Batch 6: 性能基线与第二轮优化
 
-状态: `待执行`
+状态: `benchmark 面板已完成，实测待执行`
 
 目标:
 
 - 用真实指标判断下一轮优化优先级，而不是只凭代码观感
 - 把 HTTP 层、子进程 IPC、GPU decode 路径分别量出来
+
+本批次当前交付:
+
+- `benchmark/bench_inference.py` 已支持 zero-shot / prompt latents / reference latents 三类场景
+- 新增 `benchmark/bench_runtime_matrix.py`，可批量扫描 `coalesce_ms`、`recv_queue_mode`、模型和并发
+- `AsyncServerProcess` 已支持 `NANOVLLM_RECV_QUEUE_MODE=bridge|to_thread`，默认 `bridge`
+- 新增 `docs/reference/runtime-benchmarking.md` 作为复现实验入口
 
 建议任务:
 

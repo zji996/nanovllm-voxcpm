@@ -8,6 +8,15 @@ End-to-end inference benchmarking for VoxCPM.
 uv run python benchmark/bench_inference.py --model ~/VoxCPM1.5 --concurrency 4 --iters 5 --warmup 1
 ```
 
+Prompt/reference latent reuse is also supported:
+
+```bash
+uv run python benchmark/bench_inference.py --model ~/VoxCPM2 --devices 0 --warmup 1 --iters 5 \
+  --target-text-file benchmark/target_text_100w_en.txt \
+  --prompt-wav-file ./assets/prompt.wav --prompt-wav-format wav \
+  --prompt-text "Hello from the prompt audio."
+```
+
 Fixed-RPS TTFB (open-loop) for long-audio load:
 
 ```bash
@@ -38,8 +47,25 @@ uv run python benchmark/bench_closed_loop_users.py --model ~/VoxCPM1.5 --num-use
   --target-text-file benchmark/target_text_100w_en.txt --max-generate-length 2000
 ```
 
+Runtime matrix panel:
+
+```bash
+uv run python benchmark/bench_runtime_matrix.py \
+  --model ~/VoxCPM1.5 \
+  --model ~/VoxCPM2 \
+  --devices 0 \
+  --concurrency-values 1,2,4 \
+  --queue-coalesce-values 0,1,2,5 \
+  --recv-queue-modes bridge,to_thread \
+  --scenarios zero-shot \
+  --target-text-file benchmark/target_text_100w_en.txt
+```
+
 ## Notes
 
 - Metrics are measured from the parent process wall time and include IPC overhead.
 - If the model directory is local, the script reads `config.json` to infer `sample_rate` for RTF; otherwise provide `--sample-rate`.
 - `RTF_per_req_mean` is computed as the average over requests of `(request_wall_time / request_audio_duration)`.
+- `bench_inference.py` can now sample GPU utilization via `nvidia-smi` and emits `TTFB p95`, `audio_seconds_per_second`, and failure notes.
+- Queue-shape experiments can be reproduced with `NANOVLLM_QUEUE_COALESCE_MS` and `NANOVLLM_RECV_QUEUE_MODE=bridge|to_thread`.
+- More detailed usage and command templates live in `docs/reference/runtime-benchmarking.md`.
