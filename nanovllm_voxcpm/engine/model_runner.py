@@ -362,7 +362,7 @@ class BaseModelRunner:
     @torch.inference_mode()
     def capture_cudagraph(self):
         config = self._config
-        max_bs = min(config.max_num_seqs, 512)
+        max_bs = min(config.max_num_seqs, 512, self._config.num_kvcache_blocks * self.block_size)
         max_num_blocks = (config.max_model_len + self.block_size - 1) // self.block_size
         positions = torch.zeros(max_bs, dtype=torch.int64)
         inputs = {
@@ -370,12 +370,17 @@ class BaseModelRunner:
         }
         inputs.update(self.make_dummy_inputs(max_bs, 1))
 
-        slot_mapping = torch.zeros(max_bs, dtype=torch.int32)
-        context_lens = torch.zeros(max_bs, dtype=torch.int32)
-        block_tables = torch.zeros(max_bs, max_num_blocks, dtype=torch.int32)
+        slot_mapping = torch.arange(max_bs, dtype=torch.int32)
+        context_lens = torch.ones(max_bs, dtype=torch.int32)
+        block_tables = torch.full((max_bs, max_num_blocks), -1, dtype=torch.int32)
+        block_tables[:, 0] = torch.arange(max_bs, dtype=torch.int32) // self.block_size
         outputs = self.make_dummy_outputs(max_bs)
 
-        self.graph_bs = [1, 2, 4, 8] + list(range(16, max_bs + 1, 16))
+        self.graph_bs = [bs for bs in [1, 2, 4, 8] if bs <= max_bs]
+        if max_bs > 8:
+            self.graph_bs.extend(range(16, max_bs + 1, 16))
+            if self.graph_bs[-1] != max_bs:
+                self.graph_bs.append(max_bs)
         self.graphs = {}
         self.graph_pool = None
 
@@ -433,6 +438,7 @@ class BaseModelRunner:
             graph_vars["slot_mapping"][:bs] = context.slot_mapping
             graph_vars["context_lens"].zero_()
             graph_vars["context_lens"][:bs] = context.context_lens
+            graph_vars["block_tables"].fill_(-1)
             graph_vars["block_tables"][:bs, : context.block_tables.size(1)] = context.block_tables
             graph.replay()
             # ret = graph_vars["outputs"][:bs]

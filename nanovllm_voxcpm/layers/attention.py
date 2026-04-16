@@ -54,6 +54,30 @@ def _gather_from_block_table(cache: torch.Tensor, block_table: torch.Tensor, seq
     return torch.cat(pieces, dim=0)
 
 
+def _gather_padded_from_block_table(cache: torch.Tensor, block_tables: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    if block_tables.ndim == 1:
+        block_tables = block_tables.unsqueeze(0)
+
+    batch_size, num_blocks = block_tables.shape
+    if num_blocks == 0:
+        empty = cache.new_empty((batch_size, 0, cache.size(2), cache.size(3)))
+        empty_mask = torch.zeros((batch_size, 0), dtype=torch.bool, device=cache.device)
+        return empty, empty_mask
+
+    clamped_block_tables = block_tables.clamp_min(0).to(dtype=torch.long)
+    gathered = cache.index_select(0, clamped_block_tables.reshape(-1)).view(
+        batch_size,
+        num_blocks,
+        cache.size(1),
+        cache.size(2),
+        cache.size(3),
+    )
+    block_mask = block_tables.ge(0).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+    gathered = gathered.masked_fill(~block_mask, 0)
+    token_mask = block_tables.ge(0).unsqueeze(-1).expand(batch_size, num_blocks, cache.size(1)).reshape(batch_size, -1)
+    return gathered.reshape(batch_size, -1, cache.size(2), cache.size(3)), token_mask
+
+
 def _sdpa_single_sequence(
     q_seq: torch.Tensor,
     k_seq: torch.Tensor,
@@ -121,13 +145,29 @@ def _sdpa_varlen_prefill(
 
 
 def _sdpa_decode(q: torch.Tensor, k_cache: torch.Tensor, v_cache: torch.Tensor, context) -> torch.Tensor:
-    outputs = []
-    for seq_idx in range(q.size(0)):
-        seq_len = int(context.context_lens[seq_idx].item())
-        k_seq = _gather_from_block_table(k_cache, context.block_tables[seq_idx], seq_len)
-        v_seq = _gather_from_block_table(v_cache, context.block_tables[seq_idx], seq_len)
-        outputs.append(_sdpa_single_sequence(q[seq_idx : seq_idx + 1], k_seq, v_seq, is_causal=True, causal_diagonal=seq_len - 1))
-    return torch.cat(outputs, dim=0)
+    if context.block_tables is None or context.context_lens is None:
+        raise RuntimeError("Decode attention requires block_tables and context_lens")
+
+    k_seq, token_mask = _gather_padded_from_block_table(k_cache, context.block_tables)
+    v_seq, _ = _gather_padded_from_block_table(v_cache, context.block_tables)
+
+    max_tokens = k_seq.size(1)
+    token_positions = torch.arange(max_tokens, device=q.device).unsqueeze(0)
+    seq_mask = token_positions < context.context_lens.to(device=q.device, dtype=torch.long).unsqueeze(1)
+    attn_mask = (token_mask & seq_mask).unsqueeze(1).unsqueeze(1)
+
+    q_heads = q.unsqueeze(2)
+    k_heads = _repeat_kv_heads(k_seq, q.size(1)).permute(0, 2, 1, 3)
+    v_heads = _repeat_kv_heads(v_seq, q.size(1)).permute(0, 2, 1, 3)
+    out = F.scaled_dot_product_attention(
+        q_heads,
+        k_heads,
+        v_heads,
+        attn_mask=attn_mask,
+        dropout_p=0.0,
+        is_causal=False,
+    )
+    return out.squeeze(2).contiguous()
 
 
 def _sdpa_non_causal(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
