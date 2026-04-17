@@ -31,11 +31,15 @@ class VoxCPM2ServerImpl(BaseModelServerImpl[VoxCPM2Config]):
         self.output_sample_rate = int(model_runner.vae.out_sample_rate)
         self.sample_rate = self.output_sample_rate
 
-    def _get_model_info_extra_fields(self) -> dict[str, int]:
-        return {
-            "encoder_sample_rate": int(self.encoder_sample_rate),
-            "output_sample_rate": int(self.output_sample_rate),
-        }
+    def _get_model_info_extra_fields(self) -> dict[str, int | float]:
+        response = super()._get_model_info_extra_fields()
+        response.update(
+            {
+                "encoder_sample_rate": int(self.encoder_sample_rate),
+                "output_sample_rate": int(self.output_sample_rate),
+            }
+        )
+        return response
 
     def encode_latents(self, wav: bytes, wav_format: str) -> bytes:
         wav_np, _ = librosa.load(io.BytesIO(wav), sr=self.encoder_sample_rate, mono=False)

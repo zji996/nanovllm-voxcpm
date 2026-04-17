@@ -86,7 +86,7 @@ class BaseModelServerImpl(Generic[TModelConfig]):
     def _init_model_info_from_runner(self, model_runner: Any) -> None:
         self.sample_rate = int(model_runner.vae.sample_rate)
 
-    def _get_model_info_extra_fields(self) -> dict[str, int]:
+    def _get_model_info_extra_fields(self) -> dict[str, int | float]:
         response: dict[str, int | float] = {
             "configured_max_model_len": int(self.configured_max_model_len),
             "default_max_generate_length": 2000,
